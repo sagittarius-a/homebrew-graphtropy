@@ -1,6 +1,6 @@
 cask "graphtropy" do
   version "1.0.0"
-  sha256 "7c21074f6b5e2e3c12205473ae9f5fbdefc34d9ce366c326471f65f68c29aad5"
+  sha256 "c94e45c0edad25fc578c4bfa25ea26eef4a6fa0137f6277fc1dcf7e0091312b2"
 
   url "https://github.com/sagittarius-a/homebrew-graphtropy/releases/download/v#{version}/Graphtropy-#{version}-macos.zip",
       verified: "github.com/sagittarius-a/homebrew-graphtropy/"
