@@ -23,11 +23,7 @@ On recent macOS versions, Gatekeeper may show a message such as:
 
 This does not mean the Homebrew ZIP checksum failed. It means macOS quarantined an app that is not signed with a Developer ID certificate and notarized by Apple.
 
-Until Graphtropy has Developer ID signing and notarization, users who prefer to bypass Gatekeeper quarantine can install with:
-
-```bash
-brew install --cask --no-quarantine graphtropy
-```
+The cask removes the quarantine attribute during installation to avoid this prompt. This is a distribution workaround, not a replacement for Developer ID signing and notarization.
 
 ## Packaging
 

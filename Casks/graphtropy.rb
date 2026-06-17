@@ -12,9 +12,12 @@ cask "graphtropy" do
 
   app "Graphtropy.app"
 
-  caveats <<~EOS
-    Graphtropy is not notarized. If macOS blocks it, reinstall without quarantine:
+  postflight do
+    system_command "/usr/bin/xattr",
+                   args: ["-dr", "com.apple.quarantine", "/Applications/Graphtropy.app"]
+  end
 
-      brew reinstall --cask --no-quarantine graphtropy
+  caveats <<~EOS
+    Graphtropy is ad-hoc signed, but not Apple-notarized.
   EOS
 end
