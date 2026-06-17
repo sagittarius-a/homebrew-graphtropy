@@ -11,4 +11,10 @@ cask "graphtropy" do
   depends_on macos: :ventura
 
   app "Graphtropy.app"
+
+  caveats <<~EOS
+    Graphtropy is not notarized. If macOS blocks it, reinstall without quarantine:
+
+      brew reinstall --cask --no-quarantine graphtropy
+  EOS
 end

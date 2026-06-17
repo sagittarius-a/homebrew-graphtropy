@@ -82,6 +82,12 @@ jobs:
         working-directory: upstream
         run: cargo bundle --release
 
+      - name: Sign app bundle
+        working-directory: upstream/target/release/bundle/osx
+        run: |
+          codesign --force --deep --sign - Graphtropy.app
+          codesign --verify --deep --strict --verbose=2 Graphtropy.app
+
       - name: Package app
         working-directory: upstream/target/release/bundle/osx
         run: ditto -c -k --keepParent Graphtropy.app "$GITHUB_WORKSPACE/Graphtropy-${{ steps.package.outputs.version }}-macos.zip"
@@ -126,6 +132,7 @@ jobs:
         with:
           tag_name: v${{ steps.package.outputs.version }}
           name: Graphtropy ${{ steps.package.outputs.version }}
+          overwrite_files: true
           body: |
             macOS application bundle built from ${{ steps.package.outputs.upstream_repository }}@${{ steps.package.outputs.upstream_ref }}.
 

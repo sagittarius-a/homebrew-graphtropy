@@ -11,6 +11,24 @@ brew install --cask graphtropy
 
 This installs `Graphtropy.app` in `/Applications`.
 
+## Gatekeeper
+
+The app bundle is ad-hoc signed by the packaging workflow, but it is not Apple-notarized.
+
+On recent macOS versions, Gatekeeper may show a message such as:
+
+```text
+"Graphtropy" is damaged and can't be opened. You should move it to the Bin.
+```
+
+This does not mean the Homebrew ZIP checksum failed. It means macOS quarantined an app that is not signed with a Developer ID certificate and notarized by Apple.
+
+Until Graphtropy has Developer ID signing and notarization, users who prefer to bypass Gatekeeper quarantine can install with:
+
+```bash
+brew install --cask --no-quarantine graphtropy
+```
+
 ## Packaging
 
 This tap packages the macOS app from the upstream source tag.
