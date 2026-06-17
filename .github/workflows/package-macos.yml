@@ -1,0 +1,136 @@
+name: Package macOS app
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Graphtropy release version without the leading v
+        required: true
+        default: "1.0.0"
+      upstream_ref:
+        description: Upstream Git ref to package
+        required: true
+        default: "v1.0.0"
+      upstream_repository:
+        description: Upstream GitHub repository
+        required: true
+        default: "AlxCzl/graphtropy"
+
+permissions:
+  contents: write
+
+env:
+  DEFAULT_UPSTREAM_REPOSITORY: AlxCzl/graphtropy
+
+jobs:
+  package:
+    runs-on: macos-latest
+
+    steps:
+      - name: Resolve package inputs
+        id: package
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_UPSTREAM_REF: ${{ github.event.inputs.upstream_ref }}
+          INPUT_UPSTREAM_REPOSITORY: ${{ github.event.inputs.upstream_repository }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            version="$INPUT_VERSION"
+            upstream_ref="$INPUT_UPSTREAM_REF"
+            upstream_repository="$INPUT_UPSTREAM_REPOSITORY"
+          else
+            version="${REF_NAME#v}"
+            upstream_ref="$REF_NAME"
+            upstream_repository="$DEFAULT_UPSTREAM_REPOSITORY"
+          fi
+
+          if [[ -z "$version" || -z "$upstream_ref" || -z "$upstream_repository" ]]; then
+            echo "Unable to resolve package inputs" >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "upstream_ref=$upstream_ref" >> "$GITHUB_OUTPUT"
+          echo "upstream_repository=$upstream_repository" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout tap
+        uses: actions/checkout@v4
+        with:
+          path: tap
+          ref: main
+
+      - name: Checkout upstream
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.package.outputs.upstream_repository }}
+          ref: ${{ steps.package.outputs.upstream_ref }}
+          path: upstream
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-bundle
+        run: cargo install cargo-bundle --locked
+
+      - name: Build app bundle
+        working-directory: upstream
+        run: cargo bundle --release
+
+      - name: Package app
+        working-directory: upstream/target/release/bundle/osx
+        run: ditto -c -k --keepParent Graphtropy.app "$GITHUB_WORKSPACE/Graphtropy-${{ steps.package.outputs.version }}-macos.zip"
+
+      - name: Compute SHA-256
+        id: checksum
+        shell: bash
+        run: |
+          shasum -a 256 "Graphtropy-${{ steps.package.outputs.version }}-macos.zip" > SHA256SUMS
+          sha256="$(cut -d ' ' -f 1 SHA256SUMS)"
+          echo "sha256=${sha256}" >> "$GITHUB_OUTPUT"
+
+      - name: Update cask
+        working-directory: tap
+        env:
+          VERSION: ${{ steps.package.outputs.version }}
+          SHA256: ${{ steps.checksum.outputs.sha256 }}
+        run: |
+          ruby -e '
+            path = "Casks/graphtropy.rb"
+            content = File.read(path)
+            content = content.sub(/version "[^"]+"/, %(version "#{ENV.fetch("VERSION")}"))
+            content = content.sub(/sha256 "[0-9a-f]{64}"/, %(sha256 "#{ENV.fetch("SHA256")}"))
+            File.write(path, content)
+          '
+
+      - name: Commit cask update
+        working-directory: tap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/graphtropy.rb
+          if git diff --cached --quiet; then
+            echo "Cask already up to date"
+          else
+            git commit -m "Update Graphtropy cask to v${{ steps.package.outputs.version }}"
+            git push origin HEAD:main
+          fi
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.package.outputs.version }}
+          name: Graphtropy ${{ steps.package.outputs.version }}
+          body: |
+            macOS application bundle built from ${{ steps.package.outputs.upstream_repository }}@${{ steps.package.outputs.upstream_ref }}.
+
+            SHA-256:
+            `${{ steps.checksum.outputs.sha256 }}`
+          files: |
+            Graphtropy-${{ steps.package.outputs.version }}-macos.zip
+            SHA256SUMS
